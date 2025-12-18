@@ -1021,8 +1021,8 @@ def render_bubble(role: str, content: str, mbti: str):
 
 # ===== LLM =====
 def _pick_model():
-    # Cloud では list_models が不安定なため、モデル名は固定で返す
-    return "gemini-1.5-flash"
+    # 互換のために残しているが、現在は固定モデルを直接指定している
+    return "gemini-2.0-flash"
 
 def get_llm_client():
     # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
@@ -1036,18 +1036,16 @@ def get_llm_client():
 
     # 新SDKクライアント
     client = genai.Client(api_key=api_key)
-    model_name = _pick_model() or "gemini-1.5-flash"
+    model_name = "gemini-2.0-flash"
 
     def chat(messages):
-        # Cloud のログを見やすくするため、まずは user 発話のみ結合
-        full = "\n".join(
-            m["content"] for m in messages if m["role"] == "user"
-        )
+        # role 付きで履歴全体を 1 つのテキストにまとめる
+        prompt = "\n".join([f'{m["role"]}: {m["content"]}' for m in messages])
 
         try:
             response = client.models.generate_content(
                 model=model_name,
-                contents=full,
+                contents=prompt,
             )
             return (response.text or "").strip()
         except Exception as e:
