@@ -1021,19 +1021,8 @@ def render_bubble(role: str, content: str, mbti: str):
 
 # ===== LLM =====
 def _pick_model():
-    if not HAS_GENAI: return None
-    try:
-        client = genai.Client()
-        avail = [
-            getattr(m, "name", "").split("/")[-1]
-            for m in client.models.list()
-            if "generateContent" in getattr(m, "supported_generation_methods", [])
-        ]
-    except Exception:
-        avail = []
-    for cand in ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash","gemini-1.5-flash-8b","gemini-2.0-flash-lite"]:
-        if cand in avail: return cand
-    return avail[0] if avail else None
+    # Cloud では list_models が不安定なため、モデル名は固定で返す
+    return "gemini-1.5-flash"
 
 def get_llm_client():
     # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
@@ -1047,16 +1036,23 @@ def get_llm_client():
 
     # 新SDKクライアント
     client = genai.Client(api_key=api_key)
-    model_name = _pick_model() or "gemini-2.5-flash"
+    model_name = _pick_model() or "gemini-1.5-flash"
 
     def chat(messages):
-        # system / user / assistant すべて含めて一つのテキストにまとめる
-        full = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-        response = client.models.generate_content(
-            model=model_name,
-            contents=full,
+        # Cloud のログを見やすくするため、まずは user 発話のみ結合
+        full = "\n".join(
+            m["content"] for m in messages if m["role"] == "user"
         )
-        return (response.text or "").strip()
+
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=full,
+            )
+            return (response.text or "").strip()
+        except Exception as e:
+            # Cloud では例外がUIに出ないため、明示的にメッセージとして返す
+            return f"[Gemini Error] {e}"
     return chat
 
 # ===== 研究メトリクス =====
