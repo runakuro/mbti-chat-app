@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 try:
-    import google.generativeai as genai
+    from google import genai
     HAS_GENAI = True
 except Exception:
     HAS_GENAI = False
@@ -1023,8 +1023,12 @@ def render_bubble(role: str, content: str, mbti: str):
 def _pick_model():
     if not HAS_GENAI: return None
     try:
-        avail = [getattr(m,"name","").split("/")[-1] for m in genai.list_models()
-                 if "generateContent" in getattr(m,"supported_generation_methods",[])]
+        client = genai.Client()
+        avail = [
+            getattr(m, "name", "").split("/")[-1]
+            for m in client.models.list()
+            if "generateContent" in getattr(m, "supported_generation_methods", [])
+        ]
     except Exception:
         avail = []
     for cand in ["gemini-2.5-flash","gemini-2.0-flash","gemini-1.5-flash","gemini-1.5-flash-8b","gemini-2.0-flash-lite"]:
@@ -1040,12 +1044,19 @@ def get_llm_client():
             last = next((m["content"] for m in reversed(messages) if m["role"]=="user"), "")
             return f"（スタブ）あなたの発言: {last[:80]}…"
         return stub
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(_pick_model() or "gemini-2.5-flash")
+
+    # 新SDKクライアント
+    client = genai.Client(api_key=api_key)
+    model_name = _pick_model() or "gemini-2.5-flash"
+
     def chat(messages):
+        # system / user / assistant すべて含めて一つのテキストにまとめる
         full = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-        res = model.generate_content(full)
-        return (res.text or "").strip()
+        response = client.models.generate_content(
+            model=model_name,
+            contents=full,
+        )
+        return (response.text or "").strip()
     return chat
 
 # ===== 研究メトリクス =====
