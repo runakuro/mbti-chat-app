@@ -1032,17 +1032,20 @@ def _pick_model():
     return avail[0] if avail else None
 
 def get_llm_client():
-    if not HAS_GENAI or not os.getenv("GEMINI_API_KEY"):
+    # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
+    api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
+
+    if not HAS_GENAI or not api_key:
         def stub(messages):
             last = next((m["content"] for m in reversed(messages) if m["role"]=="user"), "")
             return f"（スタブ）あなたの発言: {last[:80]}…"
         return stub
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    genai.configure(api_key=api_key)
     model = genai.GenerativeModel(_pick_model() or "gemini-2.5-flash")
     def chat(messages):
         full = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-        out = model.generate_content(full)
-        return (out.text or "").strip()
+        res = model.generate_content(full)
+        return (res.text or "").strip()
     return chat
 
 # ===== 研究メトリクス =====
