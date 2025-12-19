@@ -1025,46 +1025,20 @@ def _pick_model():
     return "gemini-2.0-flash"
 
 def get_llm_client():
-    # 1) env -> secrets の順に試す（trimもする）
+    # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
-    source = "env"
-
     if not api_key:
         try:
             api_key = str(st.secrets["GEMINI_API_KEY"]).strip()
-            source = "secrets"
-        except Exception as e:
-            # ✅ ここで「読めない理由」を画面に出す（キーは出さない）
-            st.sidebar.error(f"Secrets load failed: {type(e).__name__}: {e}")
+        except Exception:
             api_key = ""
-            source = "missing"
-
-    # 2) デバッグ表示（キーは絶対に表示しない）
-    st.sidebar.write("HAS_GENAI =", HAS_GENAI)
-    st.sidebar.write("API key =", "OK" if bool(api_key) else "MISSING")
-    st.sidebar.write("API key source =", source)
-    st.sidebar.write("API key length =", len(api_key) if api_key else 0)
-
-    st.sidebar.write("secrets keys =", list(st.secrets.keys()))
-
-    # 3) 使えないならスタブ（現状と同じ挙動）
-    if (not HAS_GENAI) or (not api_key):
-        return None
-
-    # 4) ここは元の genai 初期化に合わせる
-    from google import genai
-    return genai.Client(api_key=api_key)
-    '''
-    # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
-    api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
 
     if not HAS_GENAI or not api_key:
         def stub(messages):
-            last = next((m["content"] for m in reversed(messages) if m["role"]=="user"), "")
+            last = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
             return f"（スタブ）あなたの発言: {last[:80]}…"
         return stub
 
-    # 新SDKクライアント
     client = genai.Client(api_key=api_key)
     model_name = "gemini-2.0-flash"
 
@@ -1077,12 +1051,24 @@ def get_llm_client():
                 model=model_name,
                 contents=prompt,
             )
-            return (response.text or "").strip()
+            if hasattr(response, "text") and isinstance(response.text, str):
+                reply = response.text
+            elif hasattr(response, "candidates"):
+                try:
+                    candidate = response.candidates[0]
+                    part = candidate.content.parts[0]
+                    reply = getattr(part, "text", str(part))
+                except Exception:
+                    reply = str(response)
+            else:
+                reply = str(response)
+            return reply.strip()
+        except TypeError:
+            return "（エラー）AIの応答形式を解析できませんでした"
         except Exception as e:
-            # Cloud では例外がUIに出ないため、明示的にメッセージとして返す
             return f"[Gemini Error] {e}"
+
     return chat
-    '''
 
 # ===== 研究メトリクス =====
 EMOJI_PATTERN = re.compile("[\\U0001F300-\\U0001FAFF]")
