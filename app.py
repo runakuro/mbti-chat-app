@@ -1066,7 +1066,7 @@ def get_llm_client():
                     part = candidate.content.parts[0]
                     reply = getattr(part, "text", str(part))
                 except Exception:
-                reply = str(response)
+                    reply = str(response)
             else:
                 reply = str(response)
             return reply.strip()
