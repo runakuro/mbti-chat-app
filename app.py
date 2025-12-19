@@ -1045,6 +1045,8 @@ def get_llm_client():
     st.sidebar.write("API key source =", source)
     st.sidebar.write("API key length =", len(api_key) if api_key else 0)
 
+    st.sidebar.write("secrets keys =", list(st.secrets.keys()))
+
     # 3) 使えないならスタブ（現状と同じ挙動）
     if (not HAS_GENAI) or (not api_key):
         return None
