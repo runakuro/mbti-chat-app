@@ -1024,6 +1024,17 @@ def _pick_model():
     # 互換のために残しているが、現在は固定モデルを直接指定している
     return "gemini-2.0-flash"
 
+def debug_api_key():
+    env_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    sec_key = str(st.secrets.get("GEMINI_API_KEY", "")).strip()
+
+    st.sidebar.write("ENV key:", "OK" if env_key else "MISSING")
+    st.sidebar.write("SECRETS key:", "OK" if sec_key else "MISSING")
+    st.sidebar.write("ENV key len:", len(env_key))
+    st.sidebar.write("SECRETS key len:", len(sec_key))
+
+debug_api_key()
+
 def get_llm_client():
     # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
