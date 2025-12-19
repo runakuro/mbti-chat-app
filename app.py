@@ -1046,6 +1046,13 @@ def get_llm_client():
         # role 付きで履歴全体を 1 つのテキストにまとめる
         prompt = "\n".join([f'{m["role"]}: {m["content"]}' for m in messages])
 
+        # 連続送信を抑制（簡易レート制限）
+        now = time.time()
+        last = st.session_state.get("last_call", 0)
+        if now - last < 5:
+            return "ちょっと待ってね。考え中…"
+        st.session_state.last_call = now
+
         try:
             response = client.models.generate_content(
                 model=model_name,
@@ -1059,14 +1066,17 @@ def get_llm_client():
                     part = candidate.content.parts[0]
                     reply = getattr(part, "text", str(part))
                 except Exception:
-                    reply = str(response)
+                reply = str(response)
             else:
                 reply = str(response)
             return reply.strip()
         except TypeError:
             return "（エラー）AIの応答形式を解析できませんでした"
         except Exception as e:
-            return f"[Gemini Error] {e}"
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                return "今ちょっと話しすぎて疲れちゃったみたい。少し時間をおいてから話そう！"
+            return f"（エラー）{e}"
 
     return chat
 
