@@ -1028,6 +1028,10 @@ def get_llm_client():
     # ローカル（環境変数）と Streamlit Cloud（Secrets）の両方を見る
     api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
 
+    # ✅ デバッグ表示（キーは伏せる）
+    st.sidebar.write("HAS_GENAI =", HAS_GENAI)
+    st.sidebar.write("API key =", "OK" if bool(str(api_key).strip()) else "MISSING")
+    
     if not HAS_GENAI or not api_key:
         def stub(messages):
             last = next((m["content"] for m in reversed(messages) if m["role"]=="user"), "")
